@@ -38,6 +38,8 @@
 #'         additional columns: `Compound_Name` and `Annotation_Source`,
 #'         inserted after the `CAS` column.}
 #'
+#' @keywords postvocs
+#'
 #' @details
 #' The function automatically determines the batch strategy based on the number
 #' of CAS to query:

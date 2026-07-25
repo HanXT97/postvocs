@@ -20,6 +20,8 @@
 #' @return A named list. Each element is a named numeric vector with CAS as names
 #'   and total peak area as values. The list names are sample names.
 #'
+#' @keywords postvocs
+#'
 #' @details
 #' The function automatically detects the input type:
 #' \itemize{

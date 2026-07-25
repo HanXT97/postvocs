@@ -60,3 +60,4 @@ result <- batch_process_gcms(
 peak_iamf1 <- result$PeakTables[["IAMF1_PeakTable"]]
 }
 }
+\keyword{postvocs}

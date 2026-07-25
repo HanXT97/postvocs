@@ -86,3 +86,4 @@ filtered <- filter_by_frequency(annotated, sample_groups)
 save_postvocs_results(filtered, output_dir = "output", what = c("abundance", "summary_table"))
 }
 }
+\keyword{postvocs}

@@ -13,6 +13,8 @@
 #'   columns for each sample (in the order they appear in \code{area_list}).
 #'   Missing values are filled with 0.
 #'
+#' @keywords postvocs
+#'
 #' @details
 #' The function collects all unique CAS numbers from all samples, sorts them,
 #' and creates a matrix with CAS as rows and samples as columns. If a sample

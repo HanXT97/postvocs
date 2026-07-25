@@ -42,6 +42,8 @@
 #'
 #' @return Invisibly, a character vector of saved file paths.
 #'
+#' @keywords postvocs
+#'
 #' @details
 #' For data.frames that contain a column named "CAS", the function adds a
 #' single quote prefix to each CAS value to prevent Excel from interpreting

@@ -25,6 +25,8 @@
 #'           CAS numbers are cleaned by removing all spaces.
 #'   }
 #'
+#' @keywords postvocs
+#'
 #' @details
 #' The function expects the TXT file to have the following structure:
 #' \itemize{

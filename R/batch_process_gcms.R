@@ -27,6 +27,8 @@
 #'         process.}
 #'   \item{summary}{A data frame with total, success, and failed counts.}
 #'
+#' @keywords postvocs
+#'
 #' @importFrom readxl read_excel
 #' @importFrom tools file_path_sans_ext
 #' @importFrom stats setNames

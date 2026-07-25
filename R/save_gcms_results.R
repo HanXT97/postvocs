@@ -20,6 +20,8 @@
 #'
 #' @return Invisibly, a character vector of saved file paths.
 #'
+#' @keywords postvocs
+#'
 #' @details
 #' The function detects data frames that contain CAS-related columns (based on
 #' the data frame name containing "SearchResults") and adds a single quote

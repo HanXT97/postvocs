@@ -41,6 +41,8 @@
 #' \item{summary_table}{A comprehensive table for all original compounds with flags.}
 #' }
 #'
+#' @keywords postvocs
+#'
 #' @details
 #' The function expects the abundance matrix to contain at least two columns:
 #' `CAS` and `Compound_Name`. The `Compound_Name` column should have been
