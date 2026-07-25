@@ -41,33 +41,20 @@ library(postvocs)
 ```
 
 
-```markdown
 ## Workflow
 
 The **postvocs** workflow converts raw GC-MS exports into processed VOC analysis results:
 
-```mermaid
-flowchart TD
-
-A[Raw GC-MS exports] --> B{Parse files}
-
-B --> C[process_gcms_txt()<br>Single file]
-B --> D[batch_process_gcms()<br>Batch processing]
-
-C --> E[extract_peak_areas()]
-D --> E
-
-E --> F[build_cas_abundance()]
-
-F --> G[annotate_compounds()]
-
-G --> H[filter_by_frequency()]
-
-H --> I{Export results}
-
-I --> J[save_postvocs_results()<br>Analysis results]
-I --> K[save_gcms_results()<br>Raw parsing results]
-
+1. **Parse GC-MS exports**  
+   - Single file: `process_gcms_txt()`  
+   - Batch: `batch_process_gcms()`
+2. **Extract peak areas** → `extract_peak_areas()`
+3. **Build abundance matrix** → `build_cas_abundance()`
+4. **Annotate compounds** → `annotate_compounds()`
+5. **Frequency screening** → `filter_by_frequency()`
+6. **Export results**  
+   - Analysis results: `save_postvocs_results()`  
+   - Raw parsing: `save_gcms_results()`
 
 
 
