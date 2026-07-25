@@ -29,18 +29,14 @@
 #'   }
 #' @param force_retrieve Logical. If `TRUE`, ignore cache and query all CAS
 #'   again. Default `FALSE`.
-#' @param max_retries Integer. Maximum number of retry attempts for network
-#'   errors when querying PubChem. Default is `3`.
 #'
-#' @return A list with three components:
+#' @return A list with two components:
 #'   \item{annotation}{A data.frame containing all CAS numbers and their
 #'         retrieved information (ID, CAS, Name, MF, MW, IUPAC_Name, SMILES,
 #'         InChIKey, InChI, QueryDate, Status, Source).}
 #'   \item{abundance_updated}{The original abundance data.frame with two
 #'         additional columns: `Compound_Name` and `Annotation_Source`,
 #'         inserted after the `CAS` column.}
-#'   \item{failure_log}{A list of failure records, each containing `cas`,
-#'         `stage`, `error`, and `timestamp`.}
 #'
 #' @keywords postvocs
 #'
@@ -61,10 +57,6 @@
 #' cache is a named list where each key is a CAS number and the value is a
 #' list of chemical properties, including a `status` field (`"success"` or
 #' `"not_found"`). Cache is updated after each query.
-#'
-#' Network errors during `get_cid()` are automatically retried up to
-#' `max_retries` times with exponential backoff. If all retries fail, the
-#' affected CAS numbers are marked as not found and logged in `failure_log`.
 #'
 #' The `Annotation_Source` column indicates the origin of the compound name:
 #' \itemize{
@@ -111,13 +103,12 @@ annotate_compounds <- function(
       chunk_size = 100,
       cache_file = "cache/chem_cache.rds"
     ),
-    force_retrieve = FALSE,
-    max_retries = 3
+    force_retrieve = FALSE
 ) {
-
+  
   # ---------- 1. Input validation and setup ----------
   lib_source <- match.arg(lib_source)
-
+  
   # ---- Read input (supports data.frame, CSV, Excel) ----
   if (is.character(abundance_data) && length(abundance_data) == 1 && file.exists(abundance_data)) {
     ext <- tolower(tools::file_ext(abundance_data))
@@ -137,31 +128,41 @@ annotate_compounds <- function(
   } else {
     stop("abundance_data must be a data.frame or a path to an existing CSV or Excel file.")
   }
-
+  
   if (ncol(ab) < 2) stop("abundance_data must have at least two columns (CAS and one sample).")
   if (names(ab)[1] != "CAS") stop("The first column of abundance_data must be named 'CAS'.")
-
+  
   # ---- Clean CAS numbers: remove quotes and spaces ----
   ab[[1]] <- as.character(ab[[1]])
   ab[[1]] <- gsub("^'|'$", "", ab[[1]])  # Remove leading/trailing single quotes
   ab[[1]] <- gsub(" ", "", ab[[1]])      # Remove all spaces
-
+  
   # Extract CAS vector for processing
   cas_vec <- ab[[1]]
   cas_vec <- trimws(cas_vec)
-
+  
+  # ---- Remove NA or empty CAS ----
   if (any(cas_vec == "" | is.na(cas_vec))) {
     warning("Empty or NA CAS values found. They will be ignored in annotation.")
     valid_idx <- which(cas_vec != "" & !is.na(cas_vec))
     cas_vec <- cas_vec[valid_idx]
-    ab_sub <- ab[valid_idx, ]
-  } else {
-    ab_sub <- ab
+    ab <- ab[valid_idx, ]
   }
-
+  
+  # ---- Deduplicate CAS numbers ----
+  n_total_before <- length(cas_vec)
+  # Keep first occurrence
+  keep_idx <- !duplicated(cas_vec)
+  n_duplicates <- sum(!keep_idx)
+  if (n_duplicates > 0) {
+    cas_vec <- cas_vec[keep_idx]
+    ab <- ab[keep_idx, ]
+    # Reindex rows
+    rownames(ab) <- NULL
+  }
   n_total <- length(cas_vec)
   if (n_total == 0) stop("No valid CAS numbers to annotate.")
-
+  
   # ---- Clean user_lib if provided ----
   if (!is.null(user_lib)) {
     if (!is.data.frame(user_lib)) stop("user_lib must be a data.frame.")
@@ -173,23 +174,23 @@ annotate_compounds <- function(
     user_lib$CAS <- gsub(" ", "", user_lib$CAS)      # Remove spaces
     user_lib$Name <- as.character(user_lib$Name)
   }
-
+  
   # Prepare webchem config
   rate_limit <- webchem_config$rate_limit %||% 5
   chunk_size <- webchem_config$chunk_size %||% 100
   cache_file <- webchem_config$cache_file %||% "cache/chem_cache.rds"
   if (is.null(cache_file)) cache_file <- "cache/chem_cache.rds"
-
+  
   # Ensure cache directory exists
   cache_dir <- dirname(cache_file)
   if (!dir.exists(cache_dir)) dir.create(cache_dir, recursive = TRUE)
-
+  
   # ---------- 2. Handle user library (if lib_source = "user" or "auto") ----------
   user_lookup <- list()
   if (!is.null(user_lib)) {
     user_lookup <- setNames(user_lib$Name, user_lib$CAS)
   }
-
+  
   # For "user" mode: only user_lib, no webchem
   if (lib_source == "user") {
     if (is.null(user_lib)) stop("lib_source = 'user' but user_lib is NULL.")
@@ -213,21 +214,22 @@ annotate_compounds <- function(
       Source = sources,
       stringsAsFactors = FALSE
     )
-    ab_updated <- add_compound_name(ab_sub, annotation)
+    ab_updated <- add_compound_name(ab, annotation)
     cat("\n========== Annotation Summary ==========\n")
-    cat("Total CAS numbers:", n_total, "\n")
+    cat("Total CAS numbers (after dedup):", n_total, "\n")
+    if (n_duplicates > 0) cat("Duplicates removed:", n_duplicates, "\n")
     cat("Found in user library:", sum(!is.na(names_found)), "\n")
     cat("Not found:", sum(is.na(names_found)), "\n")
-    return(list(annotation = annotation, abundance_updated = ab_updated, failure_log = list()))
+    return(list(annotation = annotation, abundance_updated = ab_updated))
   }
-
+  
   # ---------- 3. Load cache ----------
   cache <- list()
   if (!force_retrieve && file.exists(cache_file)) {
     cache <- readRDS(cache_file)
     if (!is.list(cache)) cache <- list()
   }
-
+  
   # Determine which CAS need querying
   if (lib_source == "auto" && !is.null(user_lib)) {
     found_in_user <- cas_vec %in% names(user_lookup)
@@ -235,23 +237,24 @@ annotate_compounds <- function(
   } else {
     cas_to_query <- cas_vec[!cas_vec %in% names(cache)]
   }
-
+  
   cache_hits_before <- cas_vec[cas_vec %in% names(cache)]
   n_cache_hits <- length(cache_hits_before)
   user_hits <- if (!is.null(user_lib)) sum(cas_vec %in% names(user_lookup)) else 0
-
+  
   if (length(cas_to_query) == 0) {
     message("All CAS numbers already have information. Skipping online queries.")
     annotation <- build_annotation_from_cache_and_user(cas_vec, cache, user_lookup, newly_queried = character(0))
-    ab_updated <- add_compound_name(ab_sub, annotation)
+    ab_updated <- add_compound_name(ab, annotation)
     cat("\n========== Annotation Summary ==========\n")
-    cat("Total CAS numbers:", n_total, "\n")
+    cat("Total CAS numbers (after dedup):", n_total, "\n")
+    if (n_duplicates > 0) cat("Duplicates removed:", n_duplicates, "\n")
     cat("Cache hits:", n_cache_hits, "\n")
     if (!is.null(user_lib)) cat("User library hits:", user_hits, "\n")
     cat("Not found (NA):", sum(is.na(annotation$Name)), "\n")
-    return(list(annotation = annotation, abundance_updated = ab_updated, failure_log = list()))
+    return(list(annotation = annotation, abundance_updated = ab_updated))
   }
-
+  
   # ---------- 4. Query webchem ----------
   n_query <- length(cas_to_query)
   if (n_query > 5000) {
@@ -261,7 +264,7 @@ annotate_compounds <- function(
       "or splitting the query into smaller batches."
     )
   }
-
+  
   if (n_query <= 50) {
     batch_size <- 1
   } else if (n_query <= 1000) {
@@ -271,65 +274,34 @@ annotate_compounds <- function(
   } else {
     batch_size <- 200
   }
-
+  
   batches <- split(cas_to_query, ceiling(seq_along(cas_to_query) / batch_size))
   new_results <- list()
-  failure_log <- list()
-
-  # Helper: get CID with retry (returns a data.frame with columns query and cid)
-  get_cid_with_retry <- function(batch_cas, max_tries = max_retries) {
-    for (attempt in seq_len(max_tries)) {
-      result <- tryCatch(
-        webchem::get_cid(batch_cas, from = "cas", match = "first"),
-        error = function(e) {
-          list(
-            query = batch_cas,
-            cid = NA_integer_,
-            error = e$message,
-            is_network_error = TRUE
-          )
-        }
-      )
-      if (is.list(result) && !is.null(result$is_network_error) && result$is_network_error) {
-        if (attempt < max_tries) {
-          Sys.sleep(2 ^ attempt)
-          next
-        } else {
-          warning("get_cid failed after ", max_tries, " attempts for batch: ",
-                  paste(batch_cas, collapse = ", "))
-          return(data.frame(query = batch_cas, cid = NA_integer_, stringsAsFactors = FALSE))
-        }
-      } else {
-        if (!is.data.frame(result)) {
-          if (is.list(result) && all(c("query", "cid") %in% names(result))) {
-            result <- as.data.frame(result, stringsAsFactors = FALSE)
-          } else {
-            result <- data.frame(query = batch_cas, cid = NA_integer_, stringsAsFactors = FALSE)
-          }
-        }
-        return(result)
-      }
-    }
-  }
-
+  
   cat("\nStarting chemical annotation via webchem...\n")
   pb <- utils::txtProgressBar(min = 0, max = n_query, style = 3)
-
+  
   for (i in seq_along(batches)) {
     batch <- batches[[i]]
     prop_list <- list()
-
-    cid_df <- get_cid_with_retry(batch)
-
-    if (!is.data.frame(cid_df) || !all(c("query", "cid") %in% names(cid_df))) {
+    
+    # Get CID for the batch
+    cid_df <- tryCatch(
+      webchem::get_cid(batch, from = "cas", match = "first"),
+      error = function(e) {
+        warning("get_cid failed for batch ", i, ": ", e$message)
+        data.frame(query = batch, cid = NA_integer_, stringsAsFactors = FALSE)
+      }
+    )
+    if (nrow(cid_df) == 0) {
       cid_df <- data.frame(query = batch, cid = NA_integer_, stringsAsFactors = FALSE)
     }
-
+    
+    # Separate found and not found
     found_idx <- which(!is.na(cid_df$cid))
-    not_found_idx <- which(is.na(cid_df$cid))
-
-    # --- 关键修改：直接从 batch 中取 CAS，而不依赖 cid_df$query ---
-    # Found CAS: we can take from batch[found_idx] because order matches
+    not_found_cas <- batch[is.na(cid_df$cid)]
+    
+    # For found, get properties
     if (length(found_idx) > 0) {
       cids <- cid_df$cid[found_idx]
       prop_df <- tryCatch(
@@ -349,7 +321,7 @@ annotate_compounds <- function(
         full_prop <- data.frame(cid = cids, stringsAsFactors = FALSE)
         prop_df <- merge(full_prop, prop_df, by = "cid", all.x = TRUE)
       }
-
+      
       col_names <- names(prop_df)
       map <- list(
         MW = grep("MolecularWeight|MW", col_names, ignore.case = TRUE, value = TRUE)[1],
@@ -360,19 +332,10 @@ annotate_compounds <- function(
         InChI = grep("InChI$", col_names, ignore.case = TRUE, value = TRUE)[1]
       )
       for (key in names(map)) if (is.na(map[[key]])) map[[key]] <- NA
-
+      
       for (j in seq_len(nrow(prop_df))) {
-        # 直接从 batch 取 CAS（确保非 NA）
         cas <- batch[found_idx[j]]
-        if (is.na(cas) || nchar(cas) == 0) {
-          failure_log[[length(failure_log) + 1]] <- list(
-            cas = "unknown",
-            stage = "found_index",
-            error = "CAS value is NA in batch",
-            timestamp = Sys.time()
-          )
-          next
-        }
+        if (is.na(cas) || nchar(cas) == 0) next
         prop <- prop_df[j, ]
         prop_list[[cas]] <- list(
           status = "success",
@@ -387,63 +350,57 @@ annotate_compounds <- function(
         )
       }
     }
-
-    # Not found CAS: also directly from batch
-    if (length(not_found_idx) > 0) {
-      not_found_cas <- batch[not_found_idx]  # 直接取 batch，确保非 NA
-      for (cas in not_found_cas) {
-        if (is.na(cas) || nchar(cas) == 0) {
-          failure_log[[length(failure_log) + 1]] <- list(
-            cas = "unknown",
-            stage = "not_found_index",
-            error = "CAS value is NA in batch",
-            timestamp = Sys.time()
-          )
-          next
-        }
-        prop_list[[cas]] <- list(
-          status = "not_found",
-          Name = NA_character_,
-          MF = NA_character_,
-          MW = NA_real_,
-          IUPAC_Name = NA_character_,
-          SMILES = NA_character_,
-          InChIKey = NA_character_,
-          InChI = NA_character_,
-          QueryDate = Sys.Date()
-        )
-      }
+    
+    # For not found, fill with NA and status = "not_found"
+    for (cas in not_found_cas) {
+      if (is.na(cas) || nchar(cas) == 0) next
+      prop_list[[cas]] <- list(
+        status = "not_found",
+        Name = NA_character_,
+        MF = NA_character_,
+        MW = NA_real_,
+        IUPAC_Name = NA_character_,
+        SMILES = NA_character_,
+        InChIKey = NA_character_,
+        InChI = NA_character_,
+        QueryDate = Sys.Date()
+      )
     }
-
+    
     new_results <- c(new_results, prop_list)
     utils::setTxtProgressBar(pb, length(new_results))
-
+    
+    # Rate limiting
     if (i < length(batches)) {
       delay <- 1 / rate_limit * length(batch)
       Sys.sleep(delay)
     }
   }
   close(pb)
-
+  
   # ---------- 5. Merge new results into cache ----------
-  cache <- c(cache, new_results)
+  # Ensure cache keys are unique (overwrite existing)
+  for (key in names(new_results)) {
+    cache[[key]] <- new_results[[key]]
+  }
   saveRDS(cache, cache_file)
   cat("\nCache saved to:", cache_file, "\n")
-
+  
   # ---------- 6. Build annotation data.frame with source info ----------
   newly_queried <- cas_to_query
   annotation <- build_annotation_from_cache_and_user(cas_vec, cache, user_lookup, newly_queried)
-
+  
   # ---------- 7. Add Compound_Name and Annotation_Source to abundance data ----------
-  ab_updated <- add_compound_name(ab_sub, annotation)
-
+  ab_updated <- add_compound_name(ab, annotation)
+  
   # ---------- 8. Print summary ----------
   n_annotated <- sum(!is.na(annotation$Name))
   n_not_found <- sum(is.na(annotation$Name))
   n_new_queries <- length(cas_to_query)
-
+  
   cat("\n========== Annotation Summary ==========\n")
-  cat("Total CAS numbers processed:", n_total, "\n")
+  cat("Total CAS numbers (after dedup):", n_total, "\n")
+  if (n_duplicates > 0) cat("Duplicates removed:", n_duplicates, "\n")
   cat("Cache hits (already known):", n_cache_hits, "\n")
   if (!is.null(user_lib) && length(user_lookup) > 0) {
     cat("User library hits:", user_hits, "\n")
@@ -452,29 +409,15 @@ annotate_compounds <- function(
   cat("Successfully annotated (total):", n_annotated, "\n")
   cat("Not found (NA):", n_not_found, "\n")
   cat("Cache file saved to:", cache_file, "\n")
-
-  cat("\n========== Query Failures ==========\n")
-  if (length(failure_log) > 0) {
-    cat("Total failures:", length(failure_log), "\n")
-    for (i in seq_len(min(10, length(failure_log)))) {
-      f <- failure_log[[i]]
-      cat(sprintf("  CAS: %s, Stage: %s, Error: %s\n",
-                  f$cas, f$stage, f$error))
-    }
-    if (length(failure_log) > 10) cat("  ... and", length(failure_log)-10, "more.\n")
-  } else {
-    cat("No failures.\n")
-  }
-
+  
   # ---------- 9. Return ----------
   return(list(
     annotation = annotation,
-    abundance_updated = ab_updated,
-    failure_log = failure_log
+    abundance_updated = ab_updated
   ))
 }
 
-# ---------- Helper functions ----------
+# ---------- Helper functions (unchanged) ----------
 
 #' Build annotation data.frame from cache, user library, and newly queried
 #' @keywords internal
@@ -494,7 +437,7 @@ build_annotation_from_cache_and_user <- function(cas_vec, cache, user_lookup = l
     Source = NA_character_,
     stringsAsFactors = FALSE
   )
-
+  
   for (i in seq_along(cas_vec)) {
     cas <- cas_vec[i]
     # 1. Check user library
@@ -543,8 +486,12 @@ build_annotation_from_cache_and_user <- function(cas_vec, cache, user_lookup = l
 add_compound_name <- function(ab, annotation) {
   ab$CAS <- as.character(ab$CAS)
   annotation$CAS <- as.character(annotation$CAS)
+  # Deduplicate annotation by CAS (keep first)
+  annotation <- annotation[!duplicated(annotation$CAS), ]
+  # Merge name and source
   ab_merged <- ab %>%
     dplyr::left_join(annotation[, c("CAS", "Name", "Source")], by = "CAS")
+  # Reorder: place Compound_Name and Annotation_Source right after CAS
   cas_col <- which(names(ab_merged) == "CAS")
   name_col <- which(names(ab_merged) == "Name")
   source_col <- which(names(ab_merged) == "Source")
