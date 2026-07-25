@@ -276,7 +276,7 @@ annotate_compounds <- function(
   new_results <- list()
   failure_log <- list()
 
-  # Helper: get CID with retry
+  # Helper: get CID with retry (returns a data.frame with columns query and cid)
   get_cid_with_retry <- function(batch_cas, max_tries = max_retries) {
     for (attempt in seq_len(max_tries)) {
       result <- tryCatch(
@@ -300,6 +300,13 @@ annotate_compounds <- function(
           return(data.frame(query = batch_cas, cid = NA_integer_, stringsAsFactors = FALSE))
         }
       } else {
+        if (!is.data.frame(result)) {
+          if (is.list(result) && all(c("query", "cid") %in% names(result))) {
+            result <- as.data.frame(result, stringsAsFactors = FALSE)
+          } else {
+            result <- data.frame(query = batch_cas, cid = NA_integer_, stringsAsFactors = FALSE)
+          }
+        }
         return(result)
       }
     }
@@ -313,13 +320,16 @@ annotate_compounds <- function(
     prop_list <- list()
 
     cid_df <- get_cid_with_retry(batch)
+
     if (!is.data.frame(cid_df) || !all(c("query", "cid") %in% names(cid_df))) {
       cid_df <- data.frame(query = batch, cid = NA_integer_, stringsAsFactors = FALSE)
     }
 
     found_idx <- which(!is.na(cid_df$cid))
-    not_found_cas <- cid_df$query[is.na(cid_df$cid)]
+    not_found_idx <- which(is.na(cid_df$cid))
 
+    # --- 关键修改：直接从 batch 中取 CAS，而不依赖 cid_df$query ---
+    # Found CAS: we can take from batch[found_idx] because order matches
     if (length(found_idx) > 0) {
       cids <- cid_df$cid[found_idx]
       prop_df <- tryCatch(
@@ -352,12 +362,13 @@ annotate_compounds <- function(
       for (key in names(map)) if (is.na(map[[key]])) map[[key]] <- NA
 
       for (j in seq_len(nrow(prop_df))) {
-        cas <- cid_df$query[found_idx[j]]
+        # 直接从 batch 取 CAS（确保非 NA）
+        cas <- batch[found_idx[j]]
         if (is.na(cas) || nchar(cas) == 0) {
           failure_log[[length(failure_log) + 1]] <- list(
             cas = "unknown",
-            stage = "query_index",
-            error = "CAS value is NA",
+            stage = "found_index",
+            error = "CAS value is NA in batch",
             timestamp = Sys.time()
           )
           next
@@ -377,27 +388,31 @@ annotate_compounds <- function(
       }
     }
 
-    for (cas in not_found_cas) {
-      if (is.na(cas) || nchar(cas) == 0) {
-        failure_log[[length(failure_log) + 1]] <- list(
-          cas = "unknown",
-          stage = "not_found_index",
-          error = "CAS value is NA in not_found_cas",
-          timestamp = Sys.time()
+    # Not found CAS: also directly from batch
+    if (length(not_found_idx) > 0) {
+      not_found_cas <- batch[not_found_idx]  # 直接取 batch，确保非 NA
+      for (cas in not_found_cas) {
+        if (is.na(cas) || nchar(cas) == 0) {
+          failure_log[[length(failure_log) + 1]] <- list(
+            cas = "unknown",
+            stage = "not_found_index",
+            error = "CAS value is NA in batch",
+            timestamp = Sys.time()
+          )
+          next
+        }
+        prop_list[[cas]] <- list(
+          status = "not_found",
+          Name = NA_character_,
+          MF = NA_character_,
+          MW = NA_real_,
+          IUPAC_Name = NA_character_,
+          SMILES = NA_character_,
+          InChIKey = NA_character_,
+          InChI = NA_character_,
+          QueryDate = Sys.Date()
         )
-        next
       }
-      prop_list[[cas]] <- list(
-        status = "not_found",
-        Name = NA_character_,
-        MF = NA_character_,
-        MW = NA_real_,
-        IUPAC_Name = NA_character_,
-        SMILES = NA_character_,
-        InChIKey = NA_character_,
-        InChI = NA_character_,
-        QueryDate = Sys.Date()
-      )
     }
 
     new_results <- c(new_results, prop_list)
