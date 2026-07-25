@@ -10,7 +10,8 @@ annotate_compounds(
   user_lib = NULL,
   webchem_config = list(rate_limit = 5, chunk_size = 100, cache_file =
     "cache/chem_cache.rds"),
-  force_retrieve = FALSE
+  force_retrieve = FALSE,
+  max_retries = 3
 )
 }
 \arguments{
@@ -42,15 +43,20 @@ if `lib_source = "user"`.}
 
 \item{force_retrieve}{Logical. If `TRUE`, ignore cache and query all CAS
 again. Default `FALSE`.}
+
+\item{max_retries}{Integer. Maximum number of retry attempts for network
+errors when querying PubChem. Default is `3`.}
 }
 \value{
-A list with two components:
+A list with three components:
   \item{annotation}{A data.frame containing all CAS numbers and their
         retrieved information (ID, CAS, Name, MF, MW, IUPAC_Name, SMILES,
         InChIKey, InChI, QueryDate, Status, Source).}
   \item{abundance_updated}{The original abundance data.frame with two
         additional columns: `Compound_Name` and `Annotation_Source`,
         inserted after the `CAS` column.}
+  \item{failure_log}{A list of failure records, each containing `cas`,
+        `stage`, `error`, and `timestamp`.}
 }
 \description{
 This function takes a set of CAS numbers (from an abundance matrix) and
@@ -73,7 +79,12 @@ of CAS to query:
 
 A persistent cache is stored at the location given by `cache_file`. The
 cache is a named list where each key is a CAS number and the value is a
-list of chemical properties. Cache is updated after each query.
+list of chemical properties, including a `status` field (`"success"` or
+`"not_found"`). Cache is updated after each query.
+
+Network errors during `get_cid()` are automatically retried up to
+`max_retries` times with exponential backoff. If all retries fail, the
+affected CAS numbers are marked as not found and logged in `failure_log`.
 
 The `Annotation_Source` column indicates the origin of the compound name:
 \itemize{
