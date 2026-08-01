@@ -17,8 +17,8 @@ batch_process_gcms(
 \item{txt_dir}{Character. Path to the directory containing the TXT files.}
 
 \item{sample_file}{Character. Path to an Excel file with two columns:
-\code{File_ID} (raw TXT file identifier without extension,matching the TXT filename)
-and\code{SampleName} (user-defined sample name).}
+\code{FileID} (raw TXT file identifier without extension, matching the TXT filename exactly)
+and \code{SampleName} (user-defined sample name).}
 
 \item{sheet}{Integer or character. Sheet name or index in the Excel file.
 Default is \code{1} (first sheet).}

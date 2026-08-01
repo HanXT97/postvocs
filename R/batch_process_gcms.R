@@ -7,8 +7,8 @@
 #'
 #' @param txt_dir Character. Path to the directory containing the TXT files.
 #' @param sample_file Character. Path to an Excel file with two columns:
-#'   \code{File_ID} (raw TXT file identifier without extension,matching the TXT filename)
-#'   and\code{SampleName} (user-defined sample name).
+#'   \code{FileID} (raw TXT file identifier without extension, matching the TXT filename exactly)
+#'   and \code{SampleName} (user-defined sample name).
 #' @param sheet Integer or character. Sheet name or index in the Excel file.
 #'   Default is \code{1} (first sheet).
 #' @param pattern Character. Regular expression for file pattern; default
@@ -69,16 +69,17 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
   }
 
   # Read the Excel file, keep only the first two columns and rename them
-  # to avoid warnings about empty or duplicate column names.
   raw_map <- readxl::read_excel(sample_file, sheet = sheet)
   if (ncol(raw_map) < 2) {
-    stop("Mapping file must contain at least two columns: FileID and SampleName")}
+    stop("Mapping file must contain at least two columns: FileID and SampleName")
+  }
   sample_map <- raw_map[, 1:2]
   names(sample_map) <- c("FileID", "SampleName")
 
-  # Format FileID to two-digit character strings
-  sample_map$FileID <- trimws(as.character(sample_map$FileID))
-
+  # ---- Format FileID to match TXT filename format ----
+  # Simply convert to character and trim whitespace
+  file_ids <- trimws(as.character(sample_map$FileID))
+  sample_map$FileID <- file_ids
   id_to_name <- setNames(sample_map$SampleName, sample_map$FileID)
 
   # ---- 2. Get list of files ----
@@ -89,9 +90,7 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
 
   # ---- Check File_ID mapping ----
   txt_ids <- tools::file_path_sans_ext(basename(txt_files))
-
   missing_ids <- setdiff(txt_ids, sample_map$FileID)
-
   if (length(missing_ids) > 0) {
     warning(
       "The following TXT files have no FileID mapping: ",
@@ -130,7 +129,7 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
       if (raw_id %in% names(id_to_name)) {
         sample_name <- id_to_name[[raw_id]]
       } else {
-        warning("FileID '", raw_id, "' not found in mapping file.")
+        warning("FileID '", raw_id, "' not found in mapping file. Using raw ID as fallback.")
         sample_name <- raw_id
       }
 
@@ -156,7 +155,6 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
       message("[OK] Successfully processed: ", basename(f), " -> ", sample_name)
 
     }, error = function(e) {
-      # Print failure message with error details using message()
       message("[FAIL] Failed to process: ", basename(f))
       message("  Error: ", e$message)
       failed_files <<- c(failed_files, basename(f))
