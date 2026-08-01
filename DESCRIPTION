@@ -1,6 +1,6 @@
 Package: postvocs
 Title: Post-Processing Tools for GC-MS Volatile Organic Compound Data
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: person("Xiaotao", "Han", email = "postvocs.r@gmail.com", role = c("aut", "cre"))
 Description: Provides functions for processing Shimadzu gas
     chromatography-mass spectrometry (GC-MS) exported text files,

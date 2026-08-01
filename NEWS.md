@@ -1,3 +1,8 @@
+# postvocs 0.2.1
+
+## Bug Fixes
+- Fixed FileID matching in `batch_process_gcms()` to support exact filename mapping.
+
 # postvocs 0.2.0
 
 ## Breaking Changes

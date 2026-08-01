@@ -19,7 +19,7 @@ Notes:
 There are no downstream dependencies.
 
 ## Submission comments
-This is a resubmission of postvocs 0.2.0.
+This is a resubmission of postvocs 0.2.1.
 
 Changes from 0.1.0 (the previously submitted version):
 
@@ -56,6 +56,7 @@ Changes from 0.1.0 (the previously submitted version):
 ### Bug Fixes
 - Fixed encoding warnings in `process_gcms_txt()`.
 - Improved sample name mapping in `batch_process_gcms()`.
+- Fixed FileID matching in `batch_process_gcms()` to support exact filename mapping.
 
 These changes were made after the initial 0.1.0 submission and before CRAN acceptance, therefore the version has been incremented to 0.2.0.
 
