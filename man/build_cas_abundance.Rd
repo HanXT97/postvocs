@@ -28,12 +28,16 @@ and creates a matrix with CAS as rows and samples as columns. If a sample
 does not contain a particular CAS, its area is set to 0.
 }
 \examples{
-\dontrun{
-# After batch processing and extraction
-batch <- batch_process_gcms("data-raw/txt", "sample_mapping.xlsx")
+\donttest{
+# Get paths to example data
+txt_dir <- system.file("extdata/txt", package = "postvocs")
+sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
+
+# Batch process example files and extract peak areas
+batch <- batch_process_gcms(txt_dir, sample_file)
 areas <- extract_peak_areas(batch)
 
-# Build abundance matrix
+# Build abundance matrix (CAS as rows, samples as columns)
 abund <- build_cas_abundance(areas)
 
 # View first few rows and columns

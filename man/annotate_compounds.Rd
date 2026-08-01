@@ -8,8 +8,8 @@ annotate_compounds(
   abundance_data,
   lib_source = c("auto", "user", "webchem"),
   user_lib = NULL,
-  webchem_config = list(rate_limit = 5, chunk_size = 100, cache_file =
-    "cache/chem_cache.rds"),
+  webchem_config = list(rate_limit = 5, chunk_size = 100, cache_file = NULL),
+  use_cache = FALSE,
   force_retrieve = FALSE
 )
 }
@@ -37,11 +37,19 @@ if `lib_source = "user"`.}
 \itemize{
   \item `rate_limit` - maximum requests per second (default 5).
   \item `chunk_size` - number of CAS per batch (default 100).
-  \item `cache_file` - path to RDS cache file (default `"cache/chem_cache.rds"`).
+  \item `cache_file` - path to RDS cache file. If not provided and
+        `use_cache = TRUE`, defaults to the user cache directory
+        (e.g., `tools::R_user_dir("postvocs", "cache")/chem_cache.rds`).
 }}
 
-\item{force_retrieve}{Logical. If `TRUE`, ignore cache and query all CAS
-again. Default `FALSE`.}
+\item{use_cache}{Logical. Whether to use caching. Default is `FALSE`.
+If `FALSE`, no cache file is read or written, and `force_retrieve`
+is ignored. If `TRUE`, caching is enabled; the cache file path is
+printed to the console.}
+
+\item{force_retrieve}{Logical. If `TRUE` and `use_cache = TRUE`,
+ignore existing cache and query all CAS again. Default `FALSE`.
+Has no effect when `use_cache = FALSE`.}
 }
 \value{
 A list with two components:
@@ -71,10 +79,11 @@ of CAS to query:
         slow or rate-limited.
 }
 
-A persistent cache is stored at the location given by `cache_file`. The
-cache is a named list where each key is a CAS number and the value is a
-list of chemical properties, including a `status` field (`"success"` or
-`"not_found"`). Cache is updated after each query.
+A persistent cache is stored at the location given by `cache_file` (or
+the default user cache directory) only when `use_cache = TRUE`. The cache
+is a named list where each key is a CAS number and the value is a list
+of chemical properties, including a `status` field (`"success"` or
+`"not_found"`). Cache is updated after each query when enabled.
 
 The `Annotation_Source` column indicates the origin of the compound name:
 \itemize{
@@ -88,15 +97,20 @@ single quotes are removed and all spaces are stripped.
 }
 \examples{
 \dontrun{
-# Create a small abundance matrix
-ab <- data.frame(
-  CAS = c("64-17-5", "67-64-1", "75-05-8"),
-  Sample1 = c(100, 200, 300),
-  Sample2 = c(150, 250, 350)
-)
+# Get paths to example data
+txt_dir <- system.file("extdata/txt", package = "postvocs")
+sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 
-# Annotate using webchem
-res <- annotate_compounds(ab, lib_source = "webchem")
+# Batch process example files and build abundance matrix
+batch <- batch_process_gcms(txt_dir, sample_file)
+areas <- extract_peak_areas(batch)
+abund <- build_cas_abundance(areas)
+
+# Annotate using webchem (cache disabled by default)
+res <- annotate_compounds(abund, lib_source = "webchem")
+
+# Enable cache
+# res_cached <- annotate_compounds(abund, lib_source = "webchem", use_cache = TRUE)
 
 # View annotation table
 head(res$annotation)

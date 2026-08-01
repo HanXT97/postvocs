@@ -3,7 +3,8 @@
 #' This function saves the results from `build_cas_abundance()`,
 #' `annotate_compounds()`, or `filter_by_frequency()` to CSV or Excel files.
 #' It automatically adds a single quote prefix to CAS columns to prevent
-#' Excel date conversion.
+#' Excel date conversion. It checks whether the CAS column already contains
+#' a leading single quote; if so, it does not add another one.
 #'
 #' For Excel output (`format = "xlsx"`), if the input is a list containing
 #' multiple data frames (e.g., from `filter_by_frequency()` or
@@ -47,7 +48,8 @@
 #' @details
 #' For data.frames that contain a column named "CAS", the function adds a
 #' single quote prefix to each CAS value to prevent Excel from interpreting
-#' them as dates.
+#' them as dates. It does not add a second quote if the value already starts
+#' with a single quote.
 #'
 #' If `format = "xlsx"`, the `openxlsx` package is required.
 #'
@@ -57,17 +59,37 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Save abundance matrix as CSV
+#' # Get paths to example data
+#' txt_dir <- system.file("extdata/txt", package = "postvocs")
+#' sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
+#'
+#' # Build abundance matrix from example data
+#' batch <- batch_process_gcms(txt_dir, sample_file)
+#' areas <- extract_peak_areas(batch)
 #' abund <- build_cas_abundance(areas)
-#' save_postvocs_results(abund, output_dir = "output", format = "csv")
 #'
-#' # Save annotate_compounds results as a single Excel file with two sheets
-#' annotated <- annotate_compounds(abund)
-#' save_postvocs_results(annotated, output_dir = "output", format = "xlsx")
+#' # Annotate compounds (using webchem)
+#' annotated <- annotate_compounds(abund, lib_source = "webchem")
 #'
-#' # Save filter_by_frequency results as a single Excel file with selected sheets
-#' filtered <- filter_by_frequency(annotated, sample_groups)
-#' save_postvocs_results(filtered, output_dir = "output", what = c("abundance", "summary_table"))
+#' # Perform frequency-based screening
+#' result <- filter_by_frequency(
+#'   abundance_data = annotated,
+#'   sample_group_file = sample_file,
+#'   group_col = "Combined_Factor",
+#'   blank_indicators = c("Factor1", "Factor2", "Combined_Factor")
+#' )
+#'
+#' # 1. Save abundance matrix as CSV
+#' save_postvocs_results(abund, output_dir = tempdir(), format = "csv")
+#'
+#' # 2. Save annotate_compounds results as a single Excel file with two sheets
+#' save_postvocs_results(annotated, output_dir = tempdir(), format = "xlsx")
+#'
+#' # 3. Save filter_by_frequency results as a single Excel file with selected sheets
+#' save_postvocs_results(result, output_dir = tempdir(), what = c("abundance", "summary_table"))
+#'
+#' # Check saved files
+#' list.files(tempdir(), pattern = "\\\\.(csv|xlsx)$")
 #' }
 save_postvocs_results <- function(
     x,
@@ -81,12 +103,16 @@ save_postvocs_results <- function(
   format <- match.arg(format)
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-  # ---- Helper: add single quote to CAS column ----
+  # ---- Helper: add single quote to CAS column (if not already present) ----
   protect_cas <- function(df) {
     if (!is.data.frame(df)) return(df)
     if ("CAS" %in% names(df)) {
+      # Convert to character and check if already has leading quote
       df$CAS <- as.character(df$CAS)
-      df$CAS <- paste0("'", df$CAS)
+      # Only add quote if not already present
+      # Use grepl to detect leading single quote
+      has_quote <- grepl("^'", df$CAS)
+      df$CAS[!has_quote] <- paste0("'", df$CAS[!has_quote])
     }
     return(df)
   }

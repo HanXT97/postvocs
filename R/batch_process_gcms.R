@@ -7,13 +7,15 @@
 #'
 #' @param txt_dir Character. Path to the directory containing the TXT files.
 #' @param sample_file Character. Path to an Excel file with two columns:
-#'   \code{SampleID} (raw file identifier, e.g., "03") and \code{SampleName}
-#'   (user-defined sample name). IDs are automatically formatted to two digits
-#'   (e.g., 1 -> "01").
+#'   \code{File_ID} (raw TXT file identifier without extension,matching the TXT filename)
+#'   and\code{SampleName} (user-defined sample name).
 #' @param sheet Integer or character. Sheet name or index in the Excel file.
 #'   Default is \code{1} (first sheet).
 #' @param pattern Character. Regular expression for file pattern; default
 #'   \code{"\\.txt$"}.
+#' @param encoding Character. Encoding of the input TXT files. Default is
+#'   \code{"UTF-8"}. Change to \code{"GBK"} or \code{"latin1"} if the files
+#'   contain non-UTF-8 characters (e.g., in NIST library paths).
 #' @param ... Additional arguments passed to \code{process_gcms_txt()}
 #'   (e.g., \code{debug = TRUE}). If \code{debug = TRUE} is passed, the
 #'   detailed output from \code{process_gcms_txt} will be printed.
@@ -36,26 +38,30 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' # Process all .txt files in a folder (quiet mode)
-#' result <- batch_process_gcms(
-#'   txt_dir = "data-raw/GCMSResults/txt",
-#'   sample_file = "data-raw/SampleID.xlsx",
-#'   sheet = "Sheet1"
-#' )
+#' \donttest{
+#' # Get paths to example data
+#' txt_dir <- system.file("extdata/txt", package = "postvocs")
+#' sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 #'
-#' # Process with debug output from process_gcms_txt
+#' # Process all .txt files in the example folder
 #' result <- batch_process_gcms(
-#'   txt_dir = "data-raw/GCMSResults/txt",
-#'   sample_file = "data-raw/SampleID.xlsx",
-#'   debug = TRUE
+#'   txt_dir = txt_dir,
+#'   sample_file = sample_file,
+#'   sheet = 1
 #' )
 #'
 #' # Access a specific sample's PeakTable
-#' peak_iamf1 <- result$PeakTables[["IAMF1_PeakTable"]]
+#' peak_sample <- result$PeakTables[[1]]
+#'
+#' # View summary of processing
+#' result$summary
+#'
+#' # If you want debug output or different encoding, you can pass them:
+#' # result <- batch_process_gcms(txt_dir, sample_file, debug = TRUE)
+#' # result <- batch_process_gcms(txt_dir, sample_file, encoding = "GBK")
 #' }
 batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
-                               pattern = "\\.txt$", ...) {
+                               pattern = "\\.txt$", encoding = "UTF-8", ...) {
 
   # ---- 1. Read sample mapping file ----
   if (!file.exists(sample_file)) {
@@ -66,21 +72,31 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
   # to avoid warnings about empty or duplicate column names.
   raw_map <- readxl::read_excel(sample_file, sheet = sheet)
   if (ncol(raw_map) < 2) {
-    stop("Mapping file must contain at least two columns: SampleID and SampleName")
-  }
+    stop("Mapping file must contain at least two columns: FileID and SampleName")}
   sample_map <- raw_map[, 1:2]
-  names(sample_map) <- c("SampleID", "SampleName")
+  names(sample_map) <- c("FileID", "SampleName")
 
-  # Format SampleID to two-digit character strings
-  sample_map$SampleID <- sprintf("%02d", as.numeric(sample_map$SampleID))
-  sample_map$SampleID <- as.character(sample_map$SampleID)
+  # Format FileID to two-digit character strings
+  sample_map$FileID <- trimws(as.character(sample_map$FileID))
 
-  id_to_name <- setNames(sample_map$SampleName, sample_map$SampleID)
+  id_to_name <- setNames(sample_map$SampleName, sample_map$FileID)
 
   # ---- 2. Get list of files ----
   txt_files <- list.files(path = txt_dir, pattern = pattern, full.names = TRUE)
   if (length(txt_files) == 0) {
     stop("No files matching pattern '", pattern, "' found in ", txt_dir)
+  }
+
+  # ---- Check File_ID mapping ----
+  txt_ids <- tools::file_path_sans_ext(basename(txt_files))
+
+  missing_ids <- setdiff(txt_ids, sample_map$FileID)
+
+  if (length(missing_ids) > 0) {
+    warning(
+      "The following TXT files have no FileID mapping: ",
+      paste(missing_ids, collapse = ", ")
+    )
   }
 
   total_files <- length(txt_files)
@@ -102,11 +118,11 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
     tryCatch({
       # ---- Call process_gcms_txt, suppressing output unless debug=TRUE ----
       if (debug_flag) {
-        res <- process_gcms_txt(txt_file = f, ...)
+        res <- process_gcms_txt(txt_file = f, encoding = encoding, ...)
       } else {
         res <- NULL
         capture.output({
-          res <- suppressMessages(process_gcms_txt(txt_file = f, ...))
+          res <- suppressMessages(process_gcms_txt(txt_file = f, encoding = encoding, ...))
         }, type = "output")
       }
 
@@ -114,7 +130,7 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
       if (raw_id %in% names(id_to_name)) {
         sample_name <- id_to_name[[raw_id]]
       } else {
-        warning("SampleID '", raw_id, "' not found in mapping file. Using raw ID as fallback.")
+        warning("FileID '", raw_id, "' not found in mapping file.")
         sample_name <- raw_id
       }
 
@@ -136,27 +152,27 @@ batch_process_gcms <- function(txt_dir, sample_file, sheet = 1,
 
       success_count <- success_count + 1
 
-      # ---- Print one-line success message ----
-      cat("[OK] Successfully processed:", basename(f), "->", sample_name, "\n")
+      # ---- Print one-line success message using message() ----
+      message("[OK] Successfully processed: ", basename(f), " -> ", sample_name)
 
     }, error = function(e) {
-      # Print failure message with error details
-      cat("[FAIL] Failed to process:", basename(f), "\n")
-      cat("  Error:", e$message, "\n")
+      # Print failure message with error details using message()
+      message("[FAIL] Failed to process: ", basename(f))
+      message("  Error: ", e$message)
       failed_files <<- c(failed_files, basename(f))
       fail_count <<- fail_count + 1
     })
   }
 
-  # ---- 5. Print final summary ----
-  cat("\n========================================\n")
-  cat("Batch processing completed!\n")
-  cat("Total files:", total_files, "\n")
-  cat("Successfully processed:", success_count, "\n")
-  cat("Failed:", fail_count, "\n")
+  # ---- 5. Print final summary using message() ----
+  message("\n========================================")
+  message("Batch processing completed!")
+  message("Total files: ", total_files)
+  message("Successfully processed: ", success_count)
+  message("Failed: ", fail_count)
 
   if (length(failed_files) > 0) {
-    cat("\nFailed files:\n")
+    message("\nFailed files:")
     print(failed_files)
   }
 

@@ -2,9 +2,13 @@ Package: postvocs
 Title: Post-Processing Tools for GC-MS Volatile Organic Compound Data
 Version: 0.2.0
 Authors@R: person("Xiaotao", "Han", email = "postvocs.r@gmail.com", role = c("aut", "cre"))
-Description: Provides functions for processing Shimadzu GC-MS exported text files,
-    extracting CAS numbers and peak areas, building abundance matrices, annotating
-    compounds, and screening based on occurrence frequency.
+Description: Provides functions for processing Shimadzu gas
+    chromatography-mass spectrometry (GC-MS) exported text files,
+    extracting Chemical Abstracts Service (CAS) numbers and peak areas,
+    building abundance matrices, annotating compounds, and screening
+    based on occurrence frequency. The package is designed for
+    organizing, identifying, and screening volatile compounds in
+    metabolomics and environmental studies.
 Depends: R (>= 4.5.0)
 Imports:
     dplyr,

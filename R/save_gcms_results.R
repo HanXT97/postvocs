@@ -35,17 +35,22 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' # Process a single file
-#' res <- process_gcms_txt("data-raw/01.qgd.txt")
-#' save_gcms_results(res, "output", format = "csv")
+#' \donttest{
+#' # Get paths to example data
+#' txt_dir <- system.file("extdata/txt", package = "postvocs")
+#' txt_file <- file.path(txt_dir, "sample1.txt")
+#' sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 #'
-#' # Batch process and save as Excel
-#' batch <- batch_process_gcms("data-raw/txt", "sample_mapping.xlsx")
-#' save_gcms_results(batch, "output", format = "xlsx")
+#' # (1) Process a single file and save as CSV
+#' res <- process_gcms_txt(txt_file)
+#' save_gcms_results(res, output_dir = tempdir(), format = "csv")
 #'
-#' # Save only PeakTables (custom extraction)
-#' save_gcms_results(batch$PeakTables, "output", format = "csv")
+#' # (2) Batch process and save as Excel (all in one file)
+#' batch <- batch_process_gcms(txt_dir, sample_file)
+#' save_gcms_results(batch, output_dir = tempdir(), format = "xlsx")
+#'
+#' # (3) Save only PeakTables (custom extraction)
+#' save_gcms_results(batch$PeakTables, output_dir = tempdir(), format = "csv")
 #' }
 save_gcms_results <- function(results, output_dir, format = c("csv", "xlsx"), ...) {
 

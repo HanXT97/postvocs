@@ -164,7 +164,7 @@ This allows users to integrate the package into different GC-MS analysis pipelin
 
 ## CAS Number Protection
 
-The package automatically protects CAS numbers during export by adding single quotes when necessary.
+The package automatically protects CAS numbers during export by adding single quotes when necessary. It checks whether a leading quote already exists before adding one, avoiding duplication.
 
 This prevents Excel from automatically converting CAS identifiers into dates or other unintended formats.
 

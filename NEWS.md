@@ -1,7 +1,7 @@
 # postvocs 0.2.0
 
 ## Breaking Changes
-- `extract_cas_abundance()` has been renamed to `extract_peak_areas()` with enhanced functionality.
+- The `extract_cas_abundance()` alias has been removed. Please use `extract_peak_areas()` instead.
 - `build_cas_abundance_matrix()` has been renamed to `build_cas_abundance()` with simplified interface.
 
 ## New Features
@@ -23,6 +23,7 @@
 ## Enhancements
 - `annotate_compounds()` now supports Excel input and automatically cleans CAS numbers.
 - `filter_by_frequency()` now accepts `annotate_compounds()` output directly.
+- `save_postvocs_results()` now checks whether a CAS column already has a leading single quote before adding one, avoiding duplication.
 - Improved documentation and examples for all functions.
 - CAS numbers are automatically cleaned (spaces removed) during parsing.
 
@@ -33,7 +34,7 @@
 ## Documentation
 - Added comprehensive README.md with workflow examples.
 - All functions now have complete roxygen2 documentation.
-
+- Added example data files (`inst/extdata/txt/` with 13 sample .txt files and `SampleID.xlsx`) so all function examples are now self-contained and directly runnable.
 
 # postvocs 0.1.0
 

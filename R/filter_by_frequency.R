@@ -11,7 +11,7 @@
 #'   file with the same structure, or a list returned by \code{annotate_compounds()}
 #'   (containing \code{abundance_updated}).
 #' @param sample_group_file Either a data.frame or a character path to the sample
-#'   grouping file (CSV or Excel). The first column must be "SampleID" (ignored)
+#'   grouping file (CSV or Excel). The first column must be "FileID" (ignored)
 #'   and the second column must be "SampleName" (used to match abundance columns).
 #' @param sheet Integer or character. Sheet number or name to read from Excel
 #'   `sample_group_file`. Default is `1` (first sheet). Ignored if
@@ -74,22 +74,26 @@
 #'
 #' @examples
 #' \dontrun{
-#' # 1. From annotate_compounds result
-#' annotated <- annotate_compounds(abundance_data, lib_source = "webchem")
-#' result <- filter_by_frequency(annotated, sample_group_file = "groups.xlsx")
+#' # Get paths to example data
+#' txt_dir <- system.file("extdata/txt", package = "postvocs")
+#' sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 #'
-#' # 2. From data.frame
-#' result <- filter_by_frequency(abundance_with_name, sample_group_file = "groups.xlsx")
+#' # Batch process, extract, build abundance, and annotate
+#' batch <- batch_process_gcms(txt_dir, sample_file)
+#' areas <- extract_peak_areas(batch)
+#' abund <- build_cas_abundance(areas)
+#' annotated <- annotate_compounds(abund, lib_source = "webchem")
 #'
-#' # 3. From CSV file
-#' result <- filter_by_frequency("abundance_with_name.csv", sample_group_file = "groups.xlsx")
-#'
-#' # 4. From Excel file with sheet specification
+#' # From annotate_compounds result (recommended)
 #' result <- filter_by_frequency(
-#'   abundance_data = "abundance_with_name.xlsx",
-#'   sample_group_file = "data/SampleID.xlsx",
-#'   sheet = "fjc"
+#'   abundance_data = annotated$abundance_updated,
+#'   sample_group_file = sample_file,
+#'   group_col = "Combined_Factor",
+#'   blank_indicators = c("Factor1", "Factor2", "Combined_Factor")
 #' )
+#'
+#' # View summary
+#' result$summary
 #' }
 filter_by_frequency <- function(
     abundance_data,
@@ -196,7 +200,7 @@ filter_by_frequency <- function(
 
   # ---- Check first two columns ----
   if (ncol(group_info) < 2) stop("group file must have at least two columns.")
-  if (names(group_info)[1] != "SampleID") warning("First column should be 'SampleID' (ignored).")
+  if (names(group_info)[1] != "FileID") warning("First column should be 'FileID' (ignored).")
   if (names(group_info)[2] != "SampleName") warning("Second column should be 'SampleName'.")
 
   # ---- Extract sample names ----
@@ -429,16 +433,16 @@ filter_by_frequency <- function(
 
   # ---------- 12. Print summary to console ----------
 
-  cat("\n========== Filtering Summary ==========\n")
-  cat("Total compounds (original):", nrow(original_abun), "\n")
-  cat("Removed in blank:", length(blank_removed_cas), "\n")
-  cat("Compounds after blank removal:", nrow(abun), "\n")
-  cat("Samples used for frequency calculation:", length(sample_cols), "\n")
-  cat("Threshold total:", threshold_total * 100, "%\n")
-  cat("Threshold within group (", group_col, "):", threshold_treatment * 100, "%\n")
-  cat("Round 1 kept:", nrow(round1), "\n")
-  cat("Round 2 additional:", nrow(round2) - nrow(round1), "\n")
-  cat("Final kept:", nrow(round2), "\n")
+  message("\n========== Filtering Summary ==========")
+  message("Total compounds (original): ", nrow(original_abun))
+  message("Removed in blank: ", length(blank_removed_cas))
+  message("Compounds after blank removal: ", nrow(abun))
+  message("Samples used for frequency calculation: ", length(sample_cols))
+  message("Threshold total: ", threshold_total * 100, "%")
+  message("Threshold within group (", group_col, "): ", threshold_treatment * 100, "%")
+  message("Round 1 kept: ", nrow(round1))
+  message("Round 2 additional: ", nrow(round2) - nrow(round1))
+  message("Final kept: ", nrow(round2))
 
   # ---------- 13. Return invisibly ----------
 

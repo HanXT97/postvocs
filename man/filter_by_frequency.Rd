@@ -21,7 +21,7 @@ file with the same structure, or a list returned by \code{annotate_compounds()}
 (containing \code{abundance_updated}).}
 
 \item{sample_group_file}{Either a data.frame or a character path to the sample
-grouping file (CSV or Excel). The first column must be "SampleID" (ignored)
+grouping file (CSV or Excel). The first column must be "FileID" (ignored)
 and the second column must be "SampleName" (used to match abundance columns).}
 
 \item{sheet}{Integer or character. Sheet number or name to read from Excel
@@ -87,22 +87,26 @@ The filtering proceeds in two rounds:
 }
 \examples{
 \dontrun{
-# 1. From annotate_compounds result
-annotated <- annotate_compounds(abundance_data, lib_source = "webchem")
-result <- filter_by_frequency(annotated, sample_group_file = "groups.xlsx")
+# Get paths to example data
+txt_dir <- system.file("extdata/txt", package = "postvocs")
+sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 
-# 2. From data.frame
-result <- filter_by_frequency(abundance_with_name, sample_group_file = "groups.xlsx")
+# Batch process, extract, build abundance, and annotate
+batch <- batch_process_gcms(txt_dir, sample_file)
+areas <- extract_peak_areas(batch)
+abund <- build_cas_abundance(areas)
+annotated <- annotate_compounds(abund, lib_source = "webchem")
 
-# 3. From CSV file
-result <- filter_by_frequency("abundance_with_name.csv", sample_group_file = "groups.xlsx")
-
-# 4. From Excel file with sheet specification
+# From annotate_compounds result (recommended)
 result <- filter_by_frequency(
-  abundance_data = "abundance_with_name.xlsx",
-  sample_group_file = "data/SampleID.xlsx",
-  sheet = "fjc"
+  abundance_data = annotated$abundance_updated,
+  sample_group_file = sample_file,
+  group_col = "Combined_Factor",
+  blank_indicators = c("Factor1", "Factor2", "Combined_Factor")
 )
+
+# View summary
+result$summary
 }
 }
 \keyword{postvocs}

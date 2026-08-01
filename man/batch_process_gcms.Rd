@@ -4,21 +4,31 @@
 \alias{batch_process_gcms}
 \title{Batch process GC-MS TXT files in a directory with sample name mapping}
 \usage{
-batch_process_gcms(txt_dir, sample_file, sheet = 1, pattern = "\\\\.txt$", ...)
+batch_process_gcms(
+  txt_dir,
+  sample_file,
+  sheet = 1,
+  pattern = "\\\\.txt$",
+  encoding = "UTF-8",
+  ...
+)
 }
 \arguments{
 \item{txt_dir}{Character. Path to the directory containing the TXT files.}
 
 \item{sample_file}{Character. Path to an Excel file with two columns:
-\code{SampleID} (raw file identifier, e.g., "03") and \code{SampleName}
-(user-defined sample name). IDs are automatically formatted to two digits
-(e.g., 1 -> "01").}
+\code{File_ID} (raw TXT file identifier without extension,matching the TXT filename)
+and\code{SampleName} (user-defined sample name).}
 
 \item{sheet}{Integer or character. Sheet name or index in the Excel file.
 Default is \code{1} (first sheet).}
 
 \item{pattern}{Character. Regular expression for file pattern; default
 \code{"\\.txt$"}.}
+
+\item{encoding}{Character. Encoding of the input TXT files. Default is
+\code{"UTF-8"}. Change to \code{"GBK"} or \code{"latin1"} if the files
+contain non-UTF-8 characters (e.g., in NIST library paths).}
 
 \item{...}{Additional arguments passed to \code{process_gcms_txt()}
 (e.g., \code{debug = TRUE}). If \code{debug = TRUE} is passed, the
@@ -41,23 +51,27 @@ and returns two lists: one containing all PeakTables and one containing all
 SearchResults, each named by the mapped sample name.
 }
 \examples{
-\dontrun{
-# Process all .txt files in a folder (quiet mode)
-result <- batch_process_gcms(
-  txt_dir = "data-raw/GCMSResults/txt",
-  sample_file = "data-raw/SampleID.xlsx",
-  sheet = "Sheet1"
-)
+\donttest{
+# Get paths to example data
+txt_dir <- system.file("extdata/txt", package = "postvocs")
+sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 
-# Process with debug output from process_gcms_txt
+# Process all .txt files in the example folder
 result <- batch_process_gcms(
-  txt_dir = "data-raw/GCMSResults/txt",
-  sample_file = "data-raw/SampleID.xlsx",
-  debug = TRUE
+  txt_dir = txt_dir,
+  sample_file = sample_file,
+  sheet = 1
 )
 
 # Access a specific sample's PeakTable
-peak_iamf1 <- result$PeakTables[["IAMF1_PeakTable"]]
+peak_sample <- result$PeakTables[[1]]
+
+# View summary of processing
+result$summary
+
+# If you want debug output or different encoding, you can pass them:
+# result <- batch_process_gcms(txt_dir, sample_file, debug = TRUE)
+# result <- batch_process_gcms(txt_dir, sample_file, encoding = "GBK")
 }
 }
 \keyword{postvocs}

@@ -11,6 +11,9 @@
 #'   is used to name the output list elements.
 #' @param debug Logical. If \code{TRUE}, prints debugging information such as
 #'   total lines, start positions, and column names. Default is \code{FALSE}.
+#' @param encoding Character. Encoding of the input TXT file. Default is
+#'   \code{"UTF-8"}. Change to \code{"GBK"} or \code{"latin1"} if the file
+#'   contains non-UTF-8 characters (e.g., in NIST library paths).
 #'
 #' @return A list with two data frames, named as
 #'   \code{"<basename>_PeakTable"} and \code{"<basename>_SearchResults"},
@@ -49,22 +52,27 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' # Process a single file
-#' res <- process_gcms_txt("data-raw/03.qgd.txt", debug = TRUE)
+#' \donttest{
+#' # Get path to the example data directory
+#' txt_dir <- system.file("extdata/txt", package = "postvocs")
+#'
+#' # Construct the full path to a sample TXT file
+#' txt_file <- file.path(txt_dir, "sample1.txt")
+#'
+#' # Process the file (default encoding UTF-8)
+#' res <- process_gcms_txt(txt_file, debug = TRUE)
+#'
+#' # If encountering encoding warnings, try GBK
+#' # res <- process_gcms_txt(txt_file, encoding = "GBK")
 #'
 #' # Access the two tables using dynamically generated names
-#' peak_table <- res$`03_PeakTable`
-#' search_results <- res$`03_SearchResults`
+#' peak_table <- res[["sample1_PeakTable"]]
+#' search_results <- res[["sample1_SearchResults"]]
 #'
-#' # Or using indices (not recommended for clarity)
-#' peak_table <- res[[1]]
-#' search_results <- res[[2]]
-#'
-#' # See the names
+#' # See all names
 #' names(res)
 #' }
-process_gcms_txt <- function(txt_file, debug = FALSE) {
+process_gcms_txt <- function(txt_file, debug = FALSE, encoding = "UTF-8") {
 
   # Helper: detect delimiter (tab or comma) from a line
   detect_separator <- function(line) {
@@ -80,8 +88,8 @@ process_gcms_txt <- function(txt_file, debug = FALSE) {
     }
   }
 
-  # Read the entire file (UTF-8 encoding assumed)
-  lines <- readLines(txt_file, warn = FALSE, skipNul = TRUE, encoding = "UTF-8")
+  # Read the entire file with user-specified encoding
+  lines <- readLines(txt_file, warn = FALSE, skipNul = TRUE, encoding = encoding)
   if (debug) cat("Total lines in file:", length(lines), "\n")
 
   # ----- 1. Extract sample name from file name -----

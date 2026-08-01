@@ -2,12 +2,9 @@
 % Please edit documentation in R/extract_peak_areas.R
 \name{extract_peak_areas}
 \alias{extract_peak_areas}
-\alias{extract_cas_abundance}
 \title{Extract CAS and total peak areas from GC-MS results}
 \usage{
 extract_peak_areas(x, ...)
-
-extract_cas_abundance(x, ...)
 }
 \arguments{
 \item{x}{Either:
@@ -46,19 +43,28 @@ The function automatically detects the input type:
 }
 }
 \examples{
-\dontrun{
+\donttest{
+# Get paths to example data
+txt_file <- system.file("extdata/txt/sample1.txt", package = "postvocs")
+txt_dir <- system.file("extdata/txt", package = "postvocs")
+sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
+
 # 1. From process_gcms_txt result (single sample)
-res <- process_gcms_txt("data-raw/01.qgd.txt")
-result <- extract_peak_areas(res)
-# result is a list with one element named "01.qgd"
+res <- process_gcms_txt(txt_file)
+result_single <- extract_peak_areas(res)
+# result_single is a list with one element named "sample1"
 
 # 2. From batch_process_gcms result (multiple samples)
-batch <- batch_process_gcms("data-raw/txt", "sample_mapping.xlsx")
-results <- extract_peak_areas(batch)
-# results is a list with elements named by mapped sample names
+batch <- batch_process_gcms(txt_dir, sample_file)
+results_batch <- extract_peak_areas(batch)
+# results_batch is a list with elements named by mapped sample names
+# e.g., "Site1_TreatA_1", "Site1_TreatA_2", ...
 
-# 3. From a folder (auto-detect PeakTable and SearchResults files)
-results <- extract_peak_areas("data/output")
+# 3. From a folder containing PeakTable and SearchResults CSV files
+# (This requires you to have saved the results from save_gcms_results first)
+# For example:
+# save_gcms_results(res, tempdir(), format = "csv")
+# results_folder <- extract_peak_areas(tempdir())
 }
 }
 \keyword{postvocs}
