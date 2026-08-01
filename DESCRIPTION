@@ -18,7 +18,7 @@ Imports:
     rlang,
     webchem,
     tools
-License: GPL (>= 3)
+License: GPL (>= 3) + file LICENSE
 URL: https://github.com/HanXT97/postvocs
 BugReports: https://github.com/HanXT97/postvocs/issues
 Language: en-US
