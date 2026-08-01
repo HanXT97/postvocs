@@ -7,13 +7,15 @@
 There were no ERRORs or WARNINGs.
 
 Notes:
+- checking CRAN incoming feasibility ... NOTE
+  Possibly misspelled words in DESCRIPTION: CAS, GC, Shimadzu, metabolomics, spectrometry
+  These are standard technical terms. The DESCRIPTION now includes `Language: en-US` to address this.
+
 - checking top-level files ... NOTE
   Non-standard file/directory found at top level: 'LICENSE.md'
-  This is a standard GPL-3 license file and can be ignored.
+  The license file has been renamed to `LICENSE` (without extension) to comply with CRAN standards.
 
-- checking for non-standard things in the check directory ... NOTE
-  Found the following files/directories: ''NULL''
-  This is a benign temporary file and can be ignored.
+These notes are resolved in version 0.2.1.
 
 ## Downstream dependencies
 There are no downstream dependencies.
