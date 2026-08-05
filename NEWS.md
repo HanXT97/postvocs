@@ -1,3 +1,8 @@
+# postvocs 0.2.2
+
+## Bug Fixes
+- Removed redundant LICENSE file and simplified License field to `GPL (>= 3)` as requested by CRAN reviewer.
+
 # postvocs 0.2.1
 
 ## Bug Fixes
