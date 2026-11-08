@@ -1,6 +1,6 @@
 ## Test environments
 - local Windows 11, R 4.5.3
-- win-builder (R Under development, 2026-08-30 r90397)
+- win-builder (R Under development, 2026-11-01 r91000)
 - ubuntu 20.04 (via GitHub Actions)
 - macOS 26.5.2 (via GitHub Actions)
 
@@ -8,14 +8,6 @@
 There were no ERRORs or WARNINGs.
 
 Notes:
-- checking CRAN incoming feasibility ... NOTE
-  Possibly misspelled words in DESCRIPTION: CAS, GC, Shimadzu, metabolomics, spectrometry
-  These are standard technical terms. The DESCRIPTION includes `Language: en-US` to address this.
-
-- checking top-level files ... NOTE
-  Non-standard file/directory found at top level: 'LICENSE.md'
-  The LICENSE file is standard GPL-3 and this note is benign.
-
 - checking for non-standard things in the check directory ... NOTE
   Found the following files/directories: ''NULL''
   This is a benign temporary file from the checking process and can be safely ignored.
@@ -24,14 +16,11 @@ Notes:
 There are no downstream dependencies.
 
 ## Submission comments
-This is a resubmission of postvocs 0.2.5, addressing the CRAN reviewer's comments on version 0.2.3.
+This is a resubmission of postvocs 0.2.6, which adds a new argument and enhances summary statistics in `filter_by_frequency()`.
 
-Changes in this version (0.2.5):
-- Modified `annotate_compounds()` example to use user-provided library (`lib_source = "user"`) instead of webchem, eliminating network dependency and preventing macOS check failures.
-- Added pre-annotated example data (`inst/extdata/annotated_example.rds`) for `filter_by_frequency()` and `save_postvocs_results()` examples.
-- `filter_by_frequency()` and `save_postvocs_results()` examples now load pre-annotated data, avoiding repeated `annotate_compounds()` calls.
-- Added defensive checks in `annotate_compounds()` for `prop_df` to handle edge cases.
+Changes in this version (0.2.6) relative to 0.2.5:
+- Added `remove_blank_compounds` argument to `filter_by_frequency()` (default `FALSE`). When `TRUE`, compounds detected in blank samples are removed from all samples and flagged as `Removed_in_Blank = "-"`. When `FALSE`, blanks are only excluded from frequency calculations and no compounds are removed.
+- Enhanced summary statistics to report blank-compound removal mode, number of blank samples, and number of samples used for frequency calculation.
+- Updated documentation and added a second example demonstrating blank-compound removal.
 
-All examples are now self-contained, executable, and do not require network access.
-
-The package passes `R CMD check --as-cran` with no errors or warnings.
+All examples remain self-contained and executable without network access. The package passes `R CMD check --as-cran` with no errors or warnings.

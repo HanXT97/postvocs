@@ -11,7 +11,8 @@ filter_by_frequency(
   group_col = "Combined_Treatment",
   threshold_total = 0.25,
   threshold_treatment = 0.25,
-  blank_indicators = c("Species", "Treatment", "Combined_Treatment")
+  blank_indicators = c("Species", "Treatment", "Combined_Treatment"),
+  remove_blank_compounds = FALSE
 )
 }
 \arguments{
@@ -41,6 +42,11 @@ treatment group for the second filter. Default is `0.25` (25 percent).}
 that must all equal "0" to identify blank samples. Default is
 `c("Species", "Treatment", "Combined_Treatment")`. If some columns are
 not present, they are skipped with a warning.}
+
+\item{remove_blank_compounds}{Logical. If `TRUE`, compounds detected
+(area > 0) in any blank sample are removed from all samples. If `FALSE`
+(default), blank samples are still excluded from frequency calculations,
+but compounds detected in blanks are retained in the abundance matrix.}
 }
 \value{
 A list with five components:
@@ -59,10 +65,10 @@ A list with five components:
 }
 \description{
 This function performs a two‑step filtering of compounds from an abundance
-matrix. It removes compounds detected in blank samples, then retains
-compounds based on occurrence frequency across all samples and within
-treatment groups. It returns a detailed summary table with flags for each
-compound.
+matrix. It optionally removes compounds detected in blank samples, then
+retains compounds based on occurrence frequency across all samples and
+within treatment groups. It returns a detailed summary table with flags for
+each compound.
 }
 \details{
 The function expects the abundance matrix to contain at least two columns:
@@ -70,10 +76,12 @@ The function expects the abundance matrix to contain at least two columns:
 added by `annotate_compounds()`; if missing, a warning is issued and
 `Compound_Name` is filled with `NA`.
 
-Blank samples (identified by `blank_indicators` all equal "0") are used
-to remove contaminant compounds, but are excluded from frequency calculations.
-Compounds that appear (area > 0) in any blank sample are removed entirely
-and flagged in the summary table.
+Blank samples (identified by `blank_indicators` all equal "0") are always
+excluded from frequency calculations. If `remove_blank_compounds = TRUE`,
+compounds appearing (area > 0) in any blank sample are removed entirely
+and flagged as `Removed_in_Blank = "-"` in the summary table. If
+`remove_blank_compounds = FALSE`, blank samples are only excluded from
+frequency calculations and no compounds are removed.
 
 Frequency is calculated as the proportion of samples (or samples within a
 treatment group) where the compound area is strictly greater than zero.
@@ -93,7 +101,7 @@ annotated <- readRDS(system.file("extdata/annotated_example.rds", package = "pos
 # Path to sample grouping file
 sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 
-# Run frequency-based filtering
+# Run frequency-based filtering (blank compounds retained)
 result <- filter_by_frequency(
   abundance_data = annotated,
   sample_group_file = sample_file,
@@ -103,6 +111,15 @@ result <- filter_by_frequency(
 
 # View summary
 result$summary
+
+# Run with blank compound removal
+result_removed <- filter_by_frequency(
+  abundance_data = annotated,
+  sample_group_file = sample_file,
+  group_col = "Combined_Factor",
+  blank_indicators = c("Factor1", "Factor2", "Combined_Factor"),
+  remove_blank_compounds = TRUE
+)
 }
 }
 \keyword{postvocs}

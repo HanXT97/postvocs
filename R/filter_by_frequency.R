@@ -1,10 +1,10 @@
 #' Filter compounds by occurrence frequency across samples and treatment groups
 #'
 #' This function performs a two‑step filtering of compounds from an abundance
-#' matrix. It removes compounds detected in blank samples, then retains
-#' compounds based on occurrence frequency across all samples and within
-#' treatment groups. It returns a detailed summary table with flags for each
-#' compound.
+#' matrix. It optionally removes compounds detected in blank samples, then
+#' retains compounds based on occurrence frequency across all samples and
+#' within treatment groups. It returns a detailed summary table with flags for
+#' each compound.
 #'
 #' @param abundance_data Either a data.frame with a first column named "CAS" and
 #'   a second column named "Compound_Name", a character path to a CSV or Excel
@@ -26,6 +26,10 @@
 #'   that must all equal "0" to identify blank samples. Default is
 #'   `c("Species", "Treatment", "Combined_Treatment")`. If some columns are
 #'   not present, they are skipped with a warning.
+#' @param remove_blank_compounds Logical. If `TRUE`, compounds detected
+#'   (area > 0) in any blank sample are removed from all samples. If `FALSE`
+#'   (default), blank samples are still excluded from frequency calculations,
+#'   but compounds detected in blanks are retained in the abundance matrix.
 #'
 #' @return A list with five components:
 #'
@@ -49,10 +53,12 @@
 #' added by `annotate_compounds()`; if missing, a warning is issued and
 #' `Compound_Name` is filled with `NA`.
 #'
-#' Blank samples (identified by `blank_indicators` all equal "0") are used
-#' to remove contaminant compounds, but are excluded from frequency calculations.
-#' Compounds that appear (area > 0) in any blank sample are removed entirely
-#' and flagged in the summary table.
+#' Blank samples (identified by `blank_indicators` all equal "0") are always
+#' excluded from frequency calculations. If `remove_blank_compounds = TRUE`,
+#' compounds appearing (area > 0) in any blank sample are removed entirely
+#' and flagged as `Removed_in_Blank = "-"` in the summary table. If
+#' `remove_blank_compounds = FALSE`, blank samples are only excluded from
+#' frequency calculations and no compounds are removed.
 #'
 #' Frequency is calculated as the proportion of samples (or samples within a
 #' treatment group) where the compound area is strictly greater than zero.
@@ -80,7 +86,7 @@
 #' # Path to sample grouping file
 #' sample_file <- system.file("extdata/SampleID.xlsx", package = "postvocs")
 #'
-#' # Run frequency-based filtering
+#' # Run frequency-based filtering (blank compounds retained)
 #' result <- filter_by_frequency(
 #'   abundance_data = annotated,
 #'   sample_group_file = sample_file,
@@ -90,6 +96,15 @@
 #'
 #' # View summary
 #' result$summary
+#'
+#' # Run with blank compound removal
+#' result_removed <- filter_by_frequency(
+#'   abundance_data = annotated,
+#'   sample_group_file = sample_file,
+#'   group_col = "Combined_Factor",
+#'   blank_indicators = c("Factor1", "Factor2", "Combined_Factor"),
+#'   remove_blank_compounds = TRUE
+#' )
 #' }
 filter_by_frequency <- function(
     abundance_data,
@@ -98,7 +113,8 @@ filter_by_frequency <- function(
     group_col = "Combined_Treatment",
     threshold_total = 0.25,
     threshold_treatment = 0.25,
-    blank_indicators = c("Species", "Treatment", "Combined_Treatment")
+    blank_indicators = c("Species", "Treatment", "Combined_Treatment"),
+    remove_blank_compounds = FALSE
 ) {
 
   # ---------- 1. Input validation and data loading ----------
@@ -227,7 +243,7 @@ filter_by_frequency <- function(
   group_info$SampleName <- trimws(group_info$SampleName)
   orig_cols <- sample_cols
 
-  # ---------- 4. Remove blank sample contaminants ----------
+  # ---------- 4. Handle blank samples ----------
 
   blank_removed_cas <- character(0)
   blank_samples_actual <- character(0)
@@ -245,15 +261,26 @@ filter_by_frequency <- function(
           dplyr::filter(dplyr::if_any(dplyr::all_of(blank_samples_actual), ~ . > 0)) %>%
           dplyr::pull("CAS")
 
-        if (length(blank_cas) > 0) {
-          n_before <- nrow(abun)
-          abun <- abun %>%
-            dplyr::filter(!.data$CAS %in% blank_cas)
-          blank_removed_cas <- blank_cas
-          n_removed <- n_before - nrow(abun)
-          message("Removed ", n_removed, " rows (compounds) that appeared in blank samples.")
+        if (remove_blank_compounds) {
+          if (length(blank_cas) > 0) {
+            n_before <- nrow(abun)
+            abun <- abun %>%
+              dplyr::filter(!.data$CAS %in% blank_cas)
+            blank_removed_cas <- blank_cas
+            n_removed <- n_before - nrow(abun)
+            message("Removed ", n_removed, " compounds that appeared in blank samples.")
+          } else {
+            message("No compounds found in blank samples. Nothing removed.")
+          }
         } else {
-          message("No compounds found in blank samples. Nothing removed.")
+          if (length(blank_cas) > 0) {
+            message("Detected ", length(blank_cas),
+                    " compounds in blank samples, but they are retained ",
+                    "(remove_blank_compounds = FALSE).")
+          } else {
+            message("No compounds found in blank samples.")
+          }
+          blank_removed_cas <- character(0)
         }
       } else {
         message("Blank samples not found in abundance matrix. Nothing removed.")
@@ -431,6 +458,7 @@ filter_by_frequency <- function(
 
   message("\n========== Filtering Summary ==========")
   message("Total compounds (original): ", nrow(original_abun))
+  message("Blank compounds removal mode: ", ifelse(remove_blank_compounds, "removed", "retained"))
   message("Removed in blank: ", length(blank_removed_cas))
   message("Compounds after blank removal: ", nrow(abun))
   message("Samples used for frequency calculation: ", length(sample_cols))

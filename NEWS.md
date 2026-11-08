@@ -1,3 +1,15 @@
+# postvocs 0.2.6
+
+## New Features
+- `filter_by_frequency()` gains a new argument `remove_blank_compounds` (default `FALSE`). When `TRUE`, compounds detected (area > 0) in any blank sample are removed from all samples and flagged as `Removed_in_Blank = "-"` in the summary table. When `FALSE`, blank samples are still excluded from frequency calculations, but compounds detected in blanks are retained.
+
+## Enhancements
+- `filter_by_frequency()` summary statistics now explicitly report the blank-compound removal mode, the number of blank samples detected, and the number of samples used for frequency calculation.
+
+## Documentation
+- Updated `filter_by_frequency()` documentation to clarify the behavior of the new `remove_blank_compounds` argument and the meaning of the `Removed_in_Blank` flag in the summary table.
+- Added a second example demonstrating blank-compound removal.
+
 # postvocs 0.2.5
 
 ## Breaking Changes
